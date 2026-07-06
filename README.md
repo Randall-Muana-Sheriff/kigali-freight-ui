@@ -1,6 +1,6 @@
 # Kigali Freight Control Tower - Frontend
 
-This is the command center interface for the Kigali Freight Control Tower, a real-time geospatial optimization platform designed for fleet management and logistics dispatch in Kigali.
+This is the command center interface for the Kigali Freight Control Tower, a real-time geospatial optimisation platform designed for fleet management and logistics dispatch in Kigali.
 
 ## 🚀 Overview
 The frontend provides dispatchers with a real-time view of fleet assets, incident registries, and automated routing capabilities. Built with React and Leaflet, it bridges the gap between raw GPS data and actionable intelligence.
@@ -30,4 +30,7 @@ The frontend provides dispatchers with a real-time view of fleet assets, inciden
    ```bash
    
     npm install
+   
+  Start the development server:
   
+      npm run dev
