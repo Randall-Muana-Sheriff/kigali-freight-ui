@@ -28,4 +28,6 @@ The frontend provides dispatchers with a real-time view of fleet assets, inciden
 1. Clone the repository.
 2. Install dependencies:
    ```bash
-   npm install
+   
+    npm install
+  
