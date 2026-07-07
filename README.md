@@ -1,16 +1,36 @@
-# React + Vite
+# Kigali Freight Control Tower - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the command center interface for the Kigali Freight Control Tower, a real-time geospatial optimisation platform designed for fleet management and logistics dispatch in Kigali.
 
-Currently, two official plugins are available:
+## 🚀 Overview
+The frontend provides dispatchers with a real-time view of fleet assets, incident registries, and automated routing capabilities. Built with React and Leaflet, it bridges the gap between raw GPS data and actionable intelligence.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Tech Stack
+- **Framework:** React.js (Vite)
+- **Mapping:** Leaflet.js
+- **State Management:** React Hooks (Context API/Zustand)
+- **Communication:** Socket.io-client
+- **Styling:** Tailwind CSS
 
-## React Compiler
+## ✨ Key Features
+- **Real-Time Map Engine:** Live tracking of assets across Kigali.
+- **Incident Registry:** Instant monitoring of speed and geofence breaches.
+- **Dispatch Matrix:** Automated route calculation and driver ranking using OSRM.
+- **Interactive Geofencing:** Tools to define and manage operational boundaries.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 📦 Getting Started
 
-## Expanding the ESLint configuration
+### Prerequisites
+- Node.js (v18+)
+- npm or yarn
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Installation
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   
+    npm install
+   
+  Start the development server:
+  
+      npm run dev
