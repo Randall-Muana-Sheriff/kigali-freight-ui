@@ -16,13 +16,11 @@ const truckIcon = new L.Icon({
   iconSize: [26, 26],
   iconAnchor: [13, 13]
 });
-
 const violatorIcon = new L.Icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png', 
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
   iconSize: [28, 28],
   iconAnchor: [14, 14]
 });
-
 const flagIcon = new L.Icon({
   iconUrl: 'https://cdn-icons-png.flaticon.com/512/1441/1441463.png',
   iconSize: [32, 32],
@@ -33,50 +31,87 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [socket, setSocket] = useState(null);
   const [jwtToken, setJwtToken] = useState('');
-  
+  const [userRole, setUserRole] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [inputUsername, setInputUsername] = useState('');
+  const [inputPassword, setInputPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState('dispatcher');
+  const [authError, setAuthError] = useState('');
   const [trackedAssets, setTrackedAssets] = useState({});
-  const [violations, setViolations] = useState([]); 
-  const [activeBreachedDrivers, setActiveBreachedDrivers] = useState({}); 
+  const [violations, setViolations] = useState([]);
+  const [activeBreachedDrivers, setActiveBreachedDrivers] = useState({});
   const [routeHistories, setRouteHistories] = useState({});
   const [trailLimit, setTrailLimit] = useState(15);
-
   const [savedGeofences, setSavedGeofences] = useState([]);
   const [newFenceName, setNewFenceName] = useState('');
-  const [newFenceSpeedLimit, setNewFenceSpeedLimit] = useState('60'); // New parameter state
+  const [newFenceSpeedLimit, setNewFenceSpeedLimit] = useState('60');
   const [drawModeActive, setDrawModeActive] = useState(false);
   const [drawnPoints, setDrawnPoints] = useState([]);
-
   const [savedRoutesList, setSavedRoutesList] = useState([]);
   const [playbackCoords, setPlaybackCoords] = useState([]);
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedPlaybackRoute, setSelectedPlaybackRoute] = useState(null);
   const playbackIntervalRef = useRef(null);
-
   const [dispatchTargetMode, setDispatchTargetMode] = useState(false);
-  const [dispatchLocation, setDispatchLocation] = useState(null); 
+  const [dispatchLocation, setDispatchLocation] = useState(null);
   const [dispatchRankings, setDispatchRankings] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'Muana', password: 'secure_pass_bypass' })
-    })
-    .then(res => res.json())
-    .then(data => { if (data.token) setJwtToken(data.token); })
-    .catch(err => console.error("❌ Token error:", err));
-
-    refreshFeeds();
+    const savedToken = localStorage.getItem('fleet_token');
+    const savedRole = localStorage.getItem('fleet_role');
+    if (savedToken && savedRole) {
+      setJwtToken(savedToken);
+      setUserRole(savedRole);
+      refreshFeeds(savedToken);
+    }
   }, []);
 
-  const refreshFeeds = () => {
-    fetch('http://localhost:5000/api/routes')
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    setAuthError('');
+    const endpoint = authMode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+    const payload = authMode === 'signup'
+      ? { username: inputUsername, password: inputPassword, role: selectedRole }
+      : { username: inputUsername, password: inputPassword };
+    
+    fetch(`http://localhost:5000${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          setJwtToken(data.token);
+          setUserRole(data.role || 'dispatcher');
+          localStorage.setItem('fleet_token', data.token);
+          localStorage.setItem('fleet_role', data.role || 'dispatcher');
+          refreshFeeds(data.token);
+        } else {
+          setAuthError(data.error || 'Authentication failed');
+        }
+      })
+      .catch(() => setAuthError('Network error connecting to auth server'));
+  };
+
+  const handleLogout = () => {
+    if (socket) socket.disconnect();
+    setJwtToken('');
+    setUserRole('');
+    setIsConnected(false);
+    localStorage.removeItem('fleet_token');
+    localStorage.removeItem('fleet_role');
+  };
+
+  const refreshFeeds = (tokenToUse = jwtToken) => {
+    const headers = tokenToUse ? { 'Authorization': `Bearer ${tokenToUse}` } : {};
+    fetch('http://localhost:5000/api/routes', { headers })
       .then(res => res.json())
       .then(data => setSavedRoutesList(Array.isArray(data) ? data : []))
       .catch(() => setSavedRoutesList([]));
-
-    fetch('http://localhost:5000/api/geofences')
+    
+    fetch('http://localhost:5000/api/geofences', { headers })
       .then(res => res.json())
       .then(data => setSavedGeofences(Array.isArray(data) ? data : []))
       .catch(() => setSavedGeofences([]));
@@ -129,30 +164,28 @@ function App() {
   const calculateRoadMatrixETA = (targetLat, targetLng) => {
     const fleetArray = Object.values(trackedAssets);
     if (fleetArray.length === 0) return;
-
     fetch('http://localhost:5000/api/dispatch/matrix', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
       body: JSON.stringify({ targetLat, targetLng, activeFleet: fleetArray })
     })
-    .then(res => res.json())
-    .then(data => { if (data.rankings) setDispatchRankings(data.rankings); })
-    .catch(err => console.error(err));
+      .then(res => res.json())
+      .then(data => { if (data.rankings) setDispatchRankings(data.rankings); })
+      .catch(err => console.error(err));
   };
 
   const saveCompiledGeofence = () => {
     if (!newFenceName || drawnPoints.length < 3) return;
     const formattedPoints = drawnPoints.map(([lat, lng]) => [lng, lat]);
-
     fetch('http://localhost:5000/api/geofences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
       body: JSON.stringify({ name: newFenceName, coordinates: formattedPoints, speedLimitKmh: newFenceSpeedLimit })
     })
-    .then(() => {
-      setNewFenceName(''); setNewFenceSpeedLimit('60'); setDrawnPoints([]); setDrawModeActive(false);
-      refreshFeeds();
-    });
+      .then(() => {
+        setNewFenceName(''); setNewFenceSpeedLimit('60'); setDrawnPoints([]); setDrawModeActive(false);
+        refreshFeeds();
+      });
   };
 
   const deleteGeofence = (id) => {
@@ -160,7 +193,7 @@ function App() {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
-    .then(() => refreshFeeds());
+      .then(() => refreshFeeds());
   };
 
   const toggleNetworkStream = () => {
@@ -176,13 +209,11 @@ function App() {
         transports: ['websocket']
       });
       newSocket.on('connect', () => setIsConnected(true));
-      
       newSocket.on('fleet:snapshot', (arr) => {
         const m = {}; const h = {};
         arr.forEach(a => { m[a.driverName] = a; h[a.driverName] = [[a.lat, a.lng]]; });
         setTrackedAssets(m); setRouteHistories(h);
       });
-
       newSocket.on('driver:location-update', (data) => {
         setTrackedAssets(prev => ({ ...prev, [data.driverName]: data }));
         setRouteHistories(prev => {
@@ -190,12 +221,10 @@ function App() {
           return { ...prev, [data.driverName]: [...curr, [data.lat, data.lng]] };
         });
       });
-
       newSocket.on('geofence:violation', (v) => {
         setViolations(prev => [v, ...prev]);
         setActiveBreachedDrivers(prev => ({ ...prev, [v.driverName]: v }));
       });
-
       newSocket.on('geofence:exit', (e) => {
         setActiveBreachedDrivers(prev => {
           const copy = { ...prev };
@@ -203,7 +232,6 @@ function App() {
           return copy;
         });
       });
-
       setSocket(newSocket);
     }
   };
@@ -215,27 +243,94 @@ function App() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
       body: JSON.stringify({ driverName, coordinates: history.map(([lat, lng]) => [lng, lat]) })
     })
-    .then(() => refreshFeeds());
+      .then(() => refreshFeeds());
   };
+
+  if (!jwtToken) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-100 font-sans">
+        <div className="w-[380px] bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl space-y-4">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-white">Kigali Freight Control Tower</h2>
+            <p className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider">
+              {authMode === 'signup' ? 'Create Operator Account' : 'Secure Operator Authentication'}
+            </p>
+          </div>
+          {authError && (
+            <div className="p-2 bg-rose-950/40 border border-rose-900/60 rounded text-[11px] text-rose-400 font-mono">
+              {authError}
+            </div>
+          )}
+          <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">Username</label>
+              <input
+                type="text" value={inputUsername} onChange={e => setInputUsername(e.target.value)} required
+                className="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-100 outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">Password</label>
+              <input
+                type="password" value={inputPassword} onChange={e => setInputPassword(e.target.value)} required
+                className="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-100 outline-none focus:border-indigo-500"
+              />
+            </div>
+            {authMode === 'signup' && (
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">Assigned Role</label>
+                <select
+                  value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
+                  className="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-100 outline-none focus:border-indigo-500 font-mono"
+                >
+                  <option value="dispatcher">Dispatcher</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            )}
+            <button type="submit" className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 font-bold uppercase rounded text-white tracking-wide transition-all mt-2">
+              {authMode === 'signup' ? 'Register Account' : 'Authenticate Session'}
+            </button>
+          </form>
+          <div className="text-center pt-2 border-t border-slate-800 text-[11px]">
+            <button
+              onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
+              className="text-indigo-400 hover:underline font-mono"
+            >
+              {authMode === 'login' ? "Need an account? Sign up" : "Already registered? Log in"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      
-      {/* LEFT PANEL */}
       <div className="w-[450px] bg-slate-900 border-r border-slate-800 h-full p-4 flex flex-col overflow-y-auto space-y-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-white">Kigali Freight Control Tower</h1>
-          <p className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider">Geospatial Optimization Platform</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">Kigali Freight Control Tower</h1>
+            <p className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider">Geospatial Optimization Platform</p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {userRole && (
+              <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 border border-indigo-700/80 text-indigo-300">
+                Role: {userRole}
+              </span>
+            )}
+            <button onClick={handleLogout} className="text-[9px] text-slate-400 hover:text-rose-400 font-mono underline">
+              Sign Out
+            </button>
+          </div>
         </div>
-
         <button
           onClick={toggleNetworkStream}
           className={`w-full py-2 rounded text-xs font-bold text-white transition-all ${isConnected ? 'bg-rose-600' : 'bg-indigo-600 hover:bg-indigo-500'}`}
         >
           {isConnected ? 'DISCONNECT OPERATIONS ROUTER' : 'ESTABLISH CONNECTIVITY PIPELINE'}
         </button>
-
-        {/* REAL-TIME KPIS */}
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-3">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">📈 Operational Performance Real-Time KPIs</h3>
           <div className="grid grid-cols-2 gap-2 text-center">
@@ -249,8 +344,6 @@ function App() {
             </div>
           </div>
         </div>
-
-        {/* INCIDENT LOG WITH VELOCITY ALERTS */}
         <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-2">
           <h3 className="text-[10px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
             <span className="animate-ping h-1.5 w-1.5 rounded-full bg-rose-500 inline-block mr-1"></span>
@@ -274,8 +367,6 @@ function App() {
             )}
           </div>
         </div>
-
-        {/* OSRM NETWORK ROUTE MATRIX */}
         <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">🎯 OSRM Network Route Matrix</h3>
           <button
@@ -295,11 +386,9 @@ function App() {
             </div>
           )}
         </div>
-
-        {/* PLAYBACK ENGINE */}
         <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">🕰️ Historical Playback Engine ("Time Machine")</h3>
-          <select 
+          <select
             onChange={e => {
               const route = savedRoutesList.find(r => r.id === parseInt(e.target.value));
               if (route) loadRouteForPlayback(route);
@@ -312,20 +401,18 @@ function App() {
             ))}
           </select>
         </div>
-
-        {/* GEOFENCE GENERATION CONTROL WITH SPEED LIMIT FIELD */}
         <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
           {drawModeActive ? (
             <div className="space-y-2">
-              <input 
-                type="text" placeholder="Polygon Identity Name" value={newFenceName} 
+              <input
+                type="text" placeholder="Polygon Identity Name" value={newFenceName}
                 onChange={e => setNewFenceName(e.target.value)}
                 className="w-full p-1.5 bg-slate-900 border border-slate-800 text-slate-100 rounded text-xs outline-none"
               />
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-400 uppercase whitespace-nowrap">Speed Max:</span>
-                <input 
-                  type="number" value={newFenceSpeedLimit} 
+                <input
+                  type="number" value={newFenceSpeedLimit}
                   onChange={e => setNewFenceSpeedLimit(e.target.value)}
                   className="w-full p-1 bg-slate-900 border border-slate-800 text-amber-400 rounded text-xs outline-none font-mono"
                 />
@@ -342,8 +429,6 @@ function App() {
             </button>
           )}
         </div>
-
-        {/* ACTIVE MANAGED GEOFENCES LIST */}
         {savedGeofences.length > 0 && (
           <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1.5">
             <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">🛡️ Active Managed Geofences ({savedGeofences.length})</h3>
@@ -354,23 +439,24 @@ function App() {
                     <span className="font-mono text-indigo-300 font-bold text-[11px]">{fence.name}</span>
                     <span className="text-[9px] text-amber-500 font-mono">Limit: {fence.speedLimitKmh} km/h</span>
                   </div>
-                  <button onClick={() => deleteGeofence(fence.id)} className="text-[9px] bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900 text-rose-400 py-0.5 px-2.5 rounded font-bold uppercase">Delete</button>
+                  {userRole === 'admin' && (
+                    <button onClick={() => deleteGeofence(fence.id)} className="text-[9px] bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900 text-rose-400 py-0.5 px-2.5 rounded font-bold uppercase">Delete</button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
-
-        {/* FLEET TRANSMISSIONS */}
         <div className="flex-1 min-h-[140px] overflow-y-auto space-y-1.5">
           <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">📡 Running Field Transmissions ({Object.keys(trackedAssets).length})</h3>
           {Object.values(trackedAssets).map(asset => {
             const violationRecord = activeBreachedDrivers[asset.driverName];
             const hasViolation = !!violationRecord;
             return (
-              <div 
-                key={asset.driverName} 
-                className={`p-2 border rounded-xl flex items-center justify-between text-xs transition-colors ${hasViolation ? (violationRecord.type === 'SPEED_VIOLATION' ? 'border-amber-900 bg-amber-950/20 text-amber-200' : 'border-rose-900 bg-rose-950/20 text-rose-200') : 'border-slate-800/60 bg-slate-900/30'}`}
+              <div
+                key={asset.driverName}
+                className={`p-2 border rounded-xl flex items-center justify-between text-xs transition-colors ${hasViolation ?
+                  (violationRecord.type === 'SPEED_VIOLATION' ? 'border-amber-900 bg-amber-950/20 text-amber-200' : 'border-rose-900 bg-rose-950/20 text-rose-200') : 'border-slate-800/60 bg-slate-900/30'}`}
               >
                 <div className="flex flex-col truncate max-w-[280px]">
                   <span className="font-medium">
@@ -378,43 +464,37 @@ function App() {
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono">Live: {asset.velocityKmh} km/h</span>
                 </div>
-                <button onClick={() => saveDriverRouteHistory(asset.driverName)} className="text-[9px] bg-indigo-950 border border-indigo-800/80 hover:bg-indigo-900 text-indigo-300 py-0.5 px-2 rounded">Snap & Save</button>
+                <button onClick={() => saveDriverRouteHistory(asset.driverName)} className="text-[9px] bg-indigo-950 border border-indigo-800/80 hover:bg-indigo-900 text-indigo-300 py-0.5 px-2">Snap & Save</button>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* PRIMARY MAP */}
       <div className="flex-1 h-full w-full relative z-[1] bg-slate-950">
         <MapContainer center={[-1.9450, 30.0600]} zoom={13} className="h-full w-full opacity-90 filter invert-[0.9] hue-rotate-[180deg]">
           <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
           <MapClickHandler />
-
           {savedGeofences.map(fence => {
             const positions = fence.geojson.coordinates[0].map(([lng, lat]) => [lat, lng]);
             return (
-              <Polygon 
-                key={fence.id} positions={positions} 
+              <Polygon
+                key={fence.id} positions={positions}
                 pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.08, weight: 1.5 }}
               />
             );
           })}
-
           {drawModeActive && drawnPoints.length > 0 && (
             <>
               {drawnPoints.map((pt, idx) => <Marker key={idx} position={pt} />)}
               {drawnPoints.length > 1 && <Polygon positions={drawnPoints} pathOptions={{ color: '#ef4444', dashArray: '4,4' }} />}
             </>
           )}
-
           {Object.entries(routeHistories).map(([driverName, history]) => {
             const slicedTrail = history.slice(-trailLimit);
             if (slicedTrail.length < 2) return null;
             const hasViolation = !!activeBreachedDrivers[driverName];
-            return <Polyline key={driverName} positions={slicedTrail} pathOptions={{ color: hasViolation ? '#f59e0b' : '#10b981', weight: 2.5 }} />;
+            return <Polyline key={driverName} positions={slicedTrail} pathOptions={{ color: hasViolation ? '#ef4444' : '#10b981', weight: 2.5 }} />;
           })}
-
           {Object.values(trackedAssets).map(asset => {
             const hasViolation = !!activeBreachedDrivers[asset.driverName];
             return (
@@ -433,5 +513,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
