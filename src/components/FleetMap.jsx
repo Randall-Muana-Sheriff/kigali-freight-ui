@@ -1,8 +1,12 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, LayerGroup, useMapEvents } from 'react-leaflet';
 import { useSocket } from '../context/SocketContext';
 import { truckIcon, violatorIcon, flagIcon } from '../utils/mapIcons';
 
-function MapClickHandler({ drawModeActive, setDrawnPoints, dispatchTargetMode, setDispatchLocation, onDispatchClick }) {
+function MapClickHandler({
+  drawModeActive, setDrawnPoints,
+  dispatchTargetMode, setDispatchLocation, onDispatchClick,
+  stopTargetMode, setNewStopCoords, setStopTargetMode
+}) {
   useMapEvents({
     click(e) {
       if (drawModeActive) {
@@ -10,6 +14,9 @@ function MapClickHandler({ drawModeActive, setDrawnPoints, dispatchTargetMode, s
       } else if (dispatchTargetMode) {
         setDispatchLocation([e.latlng.lat, e.latlng.lng]);
         onDispatchClick(e.latlng.lat, e.latlng.lng);
+      } else if (stopTargetMode) {
+        setNewStopCoords([e.latlng.lat, e.latlng.lng]);
+        setStopTargetMode(false); // Disable picking mode after choice
       }
     },
   });
@@ -20,6 +27,8 @@ export default function FleetMap({
   drawModeActive, drawnPoints, setDrawnPoints,
   dispatchTargetMode, dispatchLocation, setDispatchLocation, onDispatchClick,
   trailLimit, playbackCoords, playbackIndex,
+  optimizedRoutes = [],
+  stopTargetMode, setStopTargetMode, newStopCoords, setNewStopCoords
 }) {
   const { savedGeofences, routeHistories, trackedAssets, activeBreachedDrivers } = useSocket();
 
@@ -33,6 +42,9 @@ export default function FleetMap({
           dispatchTargetMode={dispatchTargetMode}
           setDispatchLocation={setDispatchLocation}
           onDispatchClick={onDispatchClick}
+          stopTargetMode={stopTargetMode}
+          setNewStopCoords={setNewStopCoords}
+          setStopTargetMode={setStopTargetMode}
         />
 
         {savedGeofences.map((fence) => {
@@ -52,15 +64,43 @@ export default function FleetMap({
           </>
         )}
 
+        {/* Render Optimized VRP Multi-Stop Routes */}
+        {optimizedRoutes.map((routeGroup, idx) => {
+          const routePositions = routeGroup.sequence.map((node) => [node.lat, node.lng]);
+          const colors = ['#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
+          const strokeColor = colors[idx % colors.length];
+
+          return (
+            <LayerGroup key={`vrp-group-${idx}`}>
+              <Polyline
+                positions={routePositions}
+                pathOptions={{ color: strokeColor, weight: 3.5, opacity: 0.9, dashArray: '6, 6' }}
+              />
+              {routeGroup.sequence.map((node, nodeIdx) => (
+                <Marker key={`node-${idx}-${nodeIdx}`} position={[node.lat, node.lng]}>
+                  <Popup>
+                    <div className="text-xs font-mono text-slate-900 space-y-1">
+                      <div className="font-bold">{node.name || `Stop ${nodeIdx}`}</div>
+                      <div className="text-slate-600 font-bold">Vehicle Route: #{idx + 1}</div>
+                      {node.demand && <div className="text-indigo-600 font-bold">Demand Load: {node.demand}</div>}
+                      <div className="text-[10px] text-slate-400 font-bold">Sequence Order: {nodeIdx}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </LayerGroup>
+          );
+        })}
+
         {Object.entries(routeHistories).map(([driverName, history]) => {
           const slicedTrail = history.slice(-trailLimit);
           if (slicedTrail.length < 2) return null;
-          const hasViolation = !!activeBreachedDrivers[driverName];
+          const hasViolation = !activeBreachedDrivers[driverName];
           return <Polyline key={driverName} positions={slicedTrail} pathOptions={{ color: hasViolation ? '#ef4444' : '#10b981', weight: 2.5 }} />;
         })}
 
         {Object.values(trackedAssets).map((asset) => {
-          const hasViolation = !!activeBreachedDrivers[asset.driverName];
+          const hasViolation = !activeBreachedDrivers[asset.driverName];
           return (
             <Marker key={asset.driverName} position={[asset.lat, asset.lng]} icon={hasViolation ? violatorIcon : truckIcon}>
               <Popup>
@@ -72,6 +112,15 @@ export default function FleetMap({
             </Marker>
           );
         })}
+
+        {/* New stop drop-pin marker */}
+        {newStopCoords && (
+          <Marker position={newStopCoords} icon={flagIcon}>
+            <Popup>
+              <div className="text-xs font-mono text-slate-900 font-bold">New Delivery Stop Target</div>
+            </Popup>
+          </Marker>
+        )}
 
         {/* Dispatch target: mark the clicked location with a flag */}
         {dispatchLocation && (
