@@ -24,8 +24,11 @@ export default function AdminUserManagement() {
     }, [jwtToken]);
 
     useEffect(() => {
-        if (userRole === 'ADMIN' || userRole === 'MANAGER') {
-            fetchUsers();
+        if (userRole === 'admin' || userRole === 'manager') {
+            // Call fetch asynchronously to avoid sync setState inside effect
+            setTimeout(() => {
+                fetchUsers();
+            }, 0);
         }
     }, [userRole, fetchUsers]);
 
@@ -45,7 +48,7 @@ export default function AdminUserManagement() {
         }
     };
 
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
+    if (userRole !== 'admin' && userRole !== 'manager') {
         return null;
     }
 
@@ -83,10 +86,10 @@ export default function AdminUserManagement() {
                             onChange={(e) => handleRoleChange(u.id, e.target.value)}
                             className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-bold focus:outline-none focus:border-indigo-500"
                         >
-                            <option value="OPERATOR">OPERATOR</option>
-                            <option value="MANAGER">MANAGER</option>
-                            <option value="ADMIN">ADMIN</option>
-                            <option value="DRIVER">DRIVER</option>
+                            <option value="dispatcher">DISPATCHER</option>
+                            <option value="manager">MANAGER</option>
+                            <option value="admin">ADMIN</option>
+                            <option value="driver">DRIVER</option>
                         </select>
                     </div>
                 ))}

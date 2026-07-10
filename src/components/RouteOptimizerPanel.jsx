@@ -4,7 +4,7 @@ import { apiFetch, createDeliveryStop, deleteDeliveryStop, optimizeMultiStopRout
 import { useSocket } from '../context/SocketContext';
 
 export default function RouteOptimizerPanel({ onRouteOptimized, stopTargetMode, setStopTargetMode, newStopCoords }) {
-    const { jwtToken, userRole } = useSocket();
+    const { jwtToken } = useSocket();
     const [stops, setStops] = useState([]);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -38,8 +38,11 @@ export default function RouteOptimizerPanel({ onRouteOptimized, stopTargetMode, 
 
     useEffect(() => {
         if (newStopCoords) {
-            setNewLat(newStopCoords[0].toFixed(5));
-            setNewLng(newStopCoords[1].toFixed(5));
+            // Update form fields asynchronously to avoid sync setState inside effect
+            setTimeout(() => {
+                setNewLat(newStopCoords[0].toFixed(5));
+                setNewLng(newStopCoords[1].toFixed(5));
+            }, 0);
         }
     }, [newStopCoords]);
 
@@ -116,7 +119,7 @@ export default function RouteOptimizerPanel({ onRouteOptimized, stopTargetMode, 
         try {
             await commitOptimizedRoute({
                 vehicleId: 1,
-                driverName: userRole || 'Dispatcher Operator',
+                driverName: 'Dispatcher Operator',
                 geojsonPath: optimizedSequence,
                 aggregateDistanceKm: result.summary.aggregateDistanceKm,
                 totalDemand: result.summary.aggregateDemand,

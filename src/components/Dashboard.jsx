@@ -18,7 +18,7 @@ import UserProfile from './UserProfile';
 
 export default function Dashboard() {
     const { jwtToken, userRole, isConnected, toggleNetworkStream, logout, calculateRoadMatrixETA, socket } = useSocket();
-    const { routes: savedRoutes, loading: routesLoading, refreshRoutes, commitRoute } = useRoutes(jwtToken);
+    const { routes: savedRoutes, loading: routesLoading, refreshRoutes } = useRoutes(jwtToken);
 
     // Geofence drawing
     const [drawModeActive, setDrawModeActive] = useState(false);
@@ -102,9 +102,22 @@ export default function Dashboard() {
         setIsPlaying(false);
         
         try {
-            const rawGeo = route.geojsonSimplified || route.geojson_simplified || route.geojson;
+            const rawGeo = route.geojsonSimplified || route.geojson_simplified || route.geojsonPath || route.geojson_path || route.geojson;
             const geojson = typeof rawGeo === 'string' ? JSON.parse(rawGeo) : rawGeo;
-            if (geojson && geojson.coordinates) {
+            if (Array.isArray(geojson)) {
+                const points = geojson
+                    .map((node) => {
+                        if (Array.isArray(node) && node.length >= 2) return [node[1], node[0]];
+                        if (node && typeof node === 'object' && node.lat !== undefined && node.lng !== undefined) {
+                            return [node.lat, node.lng];
+                        }
+                        return null;
+                    })
+                    .filter(Boolean);
+                setPlaybackCoords(points);
+                playbackCoordsRef.current = points;
+                setPlaybackIndex(0);
+            } else if (geojson && geojson.coordinates) {
                 const points = geojson.coordinates.map(([lng, lat]) => [lat, lng]);
                 setPlaybackCoords(points);
                 playbackCoordsRef.current = points;
@@ -210,7 +223,7 @@ export default function Dashboard() {
                     setDispatchTargetMode={setDispatchTargetMode}
                 />
                 <FleetAssetList />
-                {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
+                {(userRole === 'admin' || userRole === 'manager') && (
                     <>
                         <AdminControlPanel />
                         <AdminUserManagement />

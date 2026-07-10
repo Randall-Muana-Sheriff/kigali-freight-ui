@@ -22,7 +22,7 @@ export default function VehicleAssignmentPanel() {
                 apiFetch('/api/users', { token: jwtToken }),
             ]);
             setVehicles(vehData);
-            setDrivers(usrData.filter((u) => u.role === 'DRIVER'));
+            setDrivers(usrData.filter((u) => String(u.role).toLowerCase() === 'driver'));
         } catch (err) {
             setError(err.message);
         } finally {
@@ -31,8 +31,11 @@ export default function VehicleAssignmentPanel() {
     }, [jwtToken]);
 
     useEffect(() => {
-        if (userRole === 'ADMIN' || userRole === 'MANAGER') {
-            fetchData();
+        if (userRole === 'admin' || userRole === 'manager') {
+            // Call fetch asynchronously to avoid sync setState inside effect
+            setTimeout(() => {
+                fetchData();
+            }, 0);
         }
     }, [userRole, fetchData]);
 
@@ -59,7 +62,7 @@ export default function VehicleAssignmentPanel() {
         }
     };
 
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
+    if (userRole !== 'admin' && userRole !== 'manager') {
         return null;
     }
 
@@ -91,7 +94,7 @@ export default function VehicleAssignmentPanel() {
                     <option value="">Select Vehicle Asset</option>
                     {vehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                            {v.name} ({v.type})
+                            {v.plateNumber || v.name} ({v.vehicleType || v.type})
                         </option>
                     ))}
                 </select>

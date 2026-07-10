@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { apiFetch, API_BASE } from '../utils/api';
+import { apiFetch, API_BASE, fetchRoutes, fetchGeofences } from '../utils/api';
 
 const SocketContext = createContext(null);
 
@@ -23,13 +23,13 @@ export function SocketProvider({ children }) {
   const refreshFeeds = useCallback(async (tokenToUse) => {
     const token = tokenToUse ?? jwtToken;
     try {
-      const routesData = await apiFetch('/api/routes', { token });
+      const routesData = await fetchRoutes(token);
       setSavedRoutesList(Array.isArray(routesData) ? routesData : []);
     } catch {
       setSavedRoutesList([]);
     }
     try {
-      const geofencesData = await apiFetch('/api/geofences', { token });
+      const geofencesData = await fetchGeofences(token);
       setSavedGeofences(Array.isArray(geofencesData) ? geofencesData : []);
     } catch {
       setSavedGeofences([]);
@@ -63,8 +63,8 @@ export function SocketProvider({ children }) {
       }
       setAuthError(data.error || 'Authentication failed');
       return false;
-    } catch {
-      setAuthError('Network error connecting to auth server');
+    } catch (err) {
+      setAuthError(err.message || 'Network error connecting to auth server');
       return false;
     }
   }, [refreshFeeds]);

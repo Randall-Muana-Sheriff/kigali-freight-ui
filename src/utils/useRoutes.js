@@ -23,7 +23,10 @@ export function useRoutes(jwtToken) {
     }, [jwtToken]);
 
     useEffect(() => {
-        loadRoutes();
+        // Load routes asynchronously to avoid synchronous setState inside effect
+        setTimeout(() => {
+            loadRoutes();
+        }, 0);
     }, [loadRoutes]);
 
     const commitRoute = async (payload) => {
