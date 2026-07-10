@@ -6,8 +6,12 @@ async function parseResponse(res) {
     const payload = contentType.includes('application/json') ? await res.json() : null;
 
     if (!res.ok) {
-        const message = payload?.error || payload?.message || `Request failed with status ${res.status}`;
+        const message = payload?.error?.message || payload?.error || payload?.message || `Request failed with status ${res.status}`;
         throw new Error(message);
+    }
+
+    if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+        return payload.data;
     }
 
     return payload;
@@ -28,8 +32,7 @@ async function parseResponse(res) {
 
 // Fetch all committed or active routes
 export async function fetchRoutes(token) {
-    const result = await apiFetch('/api/routes', { method: 'GET', token });
-    return result?.data ?? result;
+    return apiFetch('/api/routes', { method: 'GET', token });
 }
 
 export async function fetchGeofences(token) {
@@ -38,12 +41,11 @@ export async function fetchGeofences(token) {
 
 // VRP Multi-Stop Route Optimization Caller with advanced fleet and time windows
  export async function optimizeMultiStopRoute(depot, vehicles, stops, vehicleCapacity, token) {
-     const result = await apiFetch('/api/routes/optimize', {
+    return apiFetch('/api/routes/optimize', {
          method: 'POST',
          token,
          body: { depot, vehicles, stops, vehicleCapacity }
      });
-     return result?.data ?? result; // returns { routes, summary }
 }
 
 // Create a new delivery stop caller
@@ -53,7 +55,7 @@ export async function fetchGeofences(token) {
          token,
          body: stopData,
      });
-     return result?.stop ?? result;
+    return result?.stop ?? result;
 }
 
 // Delete a delivery stop caller
