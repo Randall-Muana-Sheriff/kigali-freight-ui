@@ -23,7 +23,17 @@ This UI connects to the backend API and Socket.IO stream to provide:
 ## Prerequisites
 
 - Node.js 18+
-- Backend API running (default `http://localhost:5000`)
+- Backend API running on your LAN or reachable host URL
+
+## Environment
+
+Create a `.env` file from [`.env.example`](.env.example) and set the backend URL before starting the UI:
+
+```bash
+VITE_API_BASE_URL=http://192.168.1.71:5000
+```
+
+Use your computer LAN IP on a phone or emulator, not `localhost`.
 
 ## Install
 
@@ -59,11 +69,19 @@ npm run lint
 
 ## Backend Connection
 
-The API base is configured in `src/utils/api.js`:
+The API base is configured in `src/utils/api.js` and must be supplied through `VITE_API_BASE_URL`.
 
-- `API_BASE = 'http://localhost:5000'`
+## Docker
 
-If your backend runs elsewhere, update that value.
+```bash
+docker build -t kigali-freight-ui --build-arg VITE_API_BASE_URL=http://your-backend:5000 .
+docker run -p 8080:80 kigali-freight-ui
+```
+
+`VITE_API_BASE_URL` is baked into the static bundle at build time (Vite env vars aren't
+readable at runtime once this is just static files), so rebuild the image whenever the
+backend URL changes. Or run the full local stack from the repo root with
+`docker compose up --build` (see `../docker-compose.yml`).
 
 ## API Contract Expectations
 
@@ -108,6 +126,18 @@ Error:
 - CORS/network errors: ensure backend `PORT` and `API_BASE` match.
 - Map not updating: verify Socket.IO connection and backend telemetry events.
 - Build failures: run `npm install` again and then `npm run build`.
+
+## Continuous Integration
+
+The frontend repo includes a GitHub Actions workflow at `.github/workflows/ci.yml` that runs on pull requests and pushes to `main` and `develop`.
+
+It performs:
+
+- `npm ci`
+- `npm run lint`
+- `npm run build`
+
+Keep the workflow green before merging UI changes.
 
 ## Production Notes
 

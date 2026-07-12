@@ -1,13 +1,38 @@
 // src/utils/api.js
-export const API_BASE = 'http://localhost:5000';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+if (!API_BASE) {
+    throw new Error('Missing VITE_API_BASE_URL. Create a .env file from .env.example and set your backend URL.');
+}
+
+function createHttpError(message, status) {
+    const error = new Error(message);
+    error.status = status;
+    return error;
+}
+
+// Registered by SocketContext so any expired/invalid token clears the
+// session in one place, instead of every caller having to check the status.
+let unauthorizedHandler = null;
+export function setUnauthorizedHandler(handler) {
+    unauthorizedHandler = handler;
+}
 
 async function parseResponse(res) {
     const contentType = res.headers.get('content-type') || '';
     const payload = contentType.includes('application/json') ? await res.json() : null;
+    const acceptedResponse = res.status === 202;
 
-    if (!res.ok) {
+    if (!res.ok && !acceptedResponse) {
         const message = payload?.error?.message || payload?.error || payload?.message || `Request failed with status ${res.status}`;
-        throw new Error(message);
+        if (res.status === 401 || res.status === 403) {
+            unauthorizedHandler?.();
+        }
+        throw createHttpError(message, res.status);
+    }
+
+    if (acceptedResponse && payload == null) {
+        return { accepted: true };
     }
 
     if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {

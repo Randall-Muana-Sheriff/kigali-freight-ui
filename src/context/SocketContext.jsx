@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { apiFetch, API_BASE, fetchRoutes, fetchGeofences } from '../utils/api';
+import { apiFetch, API_BASE, fetchRoutes, fetchGeofences, setUnauthorizedHandler } from '../utils/api';
 
 const SocketContext = createContext(null);
 
@@ -20,21 +20,44 @@ export function SocketProvider({ children }) {
   const [savedGeofences, setSavedGeofences] = useState([]);
   const [savedRoutesList, setSavedRoutesList] = useState([]);
 
+  const clearCachedAuth = useCallback(() => {
+    if (socket) socket.disconnect();
+    setSocket(null);
+    setJwtToken('');
+    setUserRole('');
+    setIsConnected(false);
+    localStorage.removeItem('fleet_token');
+    localStorage.removeItem('fleet_role');
+  }, [socket]);
+
+  // Any apiFetch call that gets a 401/403 (expired or invalid token) should
+  // clear the session everywhere, not just for the two refreshFeeds calls.
+  useEffect(() => {
+    setUnauthorizedHandler(clearCachedAuth);
+    return () => setUnauthorizedHandler(null);
+  }, [clearCachedAuth]);
+
   const refreshFeeds = useCallback(async (tokenToUse) => {
     const token = tokenToUse ?? jwtToken;
     try {
       const routesData = await fetchRoutes(token);
       setSavedRoutesList(Array.isArray(routesData) ? routesData : []);
-    } catch {
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) {
+        clearCachedAuth();
+      }
       setSavedRoutesList([]);
     }
     try {
       const geofencesData = await fetchGeofences(token);
       setSavedGeofences(Array.isArray(geofencesData) ? geofencesData : []);
-    } catch {
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) {
+        clearCachedAuth();
+      }
       setSavedGeofences([]);
     }
-  }, [jwtToken]);
+  }, [clearCachedAuth, jwtToken]);
 
   // Restore session's saved feeds on mount (token/role are already read
   // synchronously above via lazy useState initializers, avoiding a
@@ -71,6 +94,7 @@ export function SocketProvider({ children }) {
 
   const logout = useCallback(() => {
     if (socket) socket.disconnect();
+    setSocket(null);
     setJwtToken('');
     setUserRole('');
     setIsConnected(false);
@@ -94,6 +118,7 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on('connect', () => setIsConnected(true));
+    newSocket.on('disconnect', () => setIsConnected(false));
 
     newSocket.on('fleet:snapshot', (arr) => {
       const assetMap = {};
@@ -174,6 +199,7 @@ export function SocketProvider({ children }) {
   const value = {
     jwtToken, userRole, authError, login, logout,
     isConnected, toggleNetworkStream,
+    socket,
     trackedAssets, violations, activeBreachedDrivers, routeHistories,
     savedGeofences, savedRoutesList, refreshFeeds,
     saveDriverRouteHistory, saveGeofence, deleteGeofence, calculateRoadMatrixETA,

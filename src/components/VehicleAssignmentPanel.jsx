@@ -31,7 +31,7 @@ export default function VehicleAssignmentPanel() {
     }, [jwtToken]);
 
     useEffect(() => {
-        if (userRole === 'admin' || userRole === 'manager') {
+        if (userRole === 'admin' || userRole === 'dispatcher') {
             // Call fetch asynchronously to avoid sync setState inside effect
             setTimeout(() => {
                 fetchData();
@@ -62,7 +62,7 @@ export default function VehicleAssignmentPanel() {
         }
     };
 
-    if (userRole !== 'admin' && userRole !== 'manager') {
+    if (userRole !== 'admin' && userRole !== 'dispatcher') {
         return null;
     }
 

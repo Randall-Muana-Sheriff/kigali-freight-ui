@@ -24,7 +24,7 @@ export default function AdminUserManagement() {
     }, [jwtToken]);
 
     useEffect(() => {
-        if (userRole === 'admin' || userRole === 'manager') {
+        if (userRole === 'admin') {
             // Call fetch asynchronously to avoid sync setState inside effect
             setTimeout(() => {
                 fetchUsers();
@@ -48,7 +48,7 @@ export default function AdminUserManagement() {
         }
     };
 
-    if (userRole !== 'admin' && userRole !== 'manager') {
+    if (userRole !== 'admin') {
         return null;
     }
 
@@ -87,7 +87,6 @@ export default function AdminUserManagement() {
                             className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-bold focus:outline-none focus:border-indigo-500"
                         >
                             <option value="dispatcher">DISPATCHER</option>
-                            <option value="manager">MANAGER</option>
                             <option value="admin">ADMIN</option>
                             <option value="driver">DRIVER</option>
                         </select>

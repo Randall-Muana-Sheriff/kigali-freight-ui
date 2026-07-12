@@ -117,12 +117,13 @@ export default function RouteOptimizerPanel({ onRouteOptimized, stopTargetMode, 
         setCommitting(true);
         setError(null);
         try {
+            const totalDemand = optimizedSequence.reduce((sum, node) => sum + (Number(node.demand) || 0), 0);
             await commitOptimizedRoute({
                 vehicleId: 1,
                 driverName: 'Dispatcher Operator',
                 geojsonPath: optimizedSequence,
                 aggregateDistanceKm: result.summary.aggregateDistanceKm,
-                totalDemand: result.summary.aggregateDemand,
+                totalDemand,
             }, jwtToken);
             alert('Route successfully committed to database!');
         } catch (err) {

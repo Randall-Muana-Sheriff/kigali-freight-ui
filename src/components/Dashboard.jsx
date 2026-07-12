@@ -223,12 +223,16 @@ export default function Dashboard() {
                     setDispatchTargetMode={setDispatchTargetMode}
                 />
                 <FleetAssetList />
-                {(userRole === 'admin' || userRole === 'manager') && (
+                {(userRole === 'admin' || userRole === 'dispatcher') && (
                     <>
                         <AdminControlPanel />
+                        <VehicleAssignmentPanel />
+                    </>
+                )}
+                {userRole === 'admin' && (
+                    <>
                         <AdminUserManagement />
                         <SystemAuditLogs />
-                        <VehicleAssignmentPanel />
                     </>
                 )}
             </div>

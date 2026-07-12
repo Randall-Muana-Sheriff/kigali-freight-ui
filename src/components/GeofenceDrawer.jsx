@@ -58,7 +58,7 @@ export default function GeofenceDrawer({ drawModeActive, setDrawModeActive, draw
                   <span className="font-mono text-indigo-300 font-bold text-[11px]">{fence.name}</span>
                   <span className="text-[9px] text-amber-500 font-mono">Limit: {fence.speedLimitKmh} km/h</span>
                 </div>
-                {userRole === 'admin' && (
+                {(userRole === 'admin' || userRole === 'dispatcher') && (
                   <button onClick={() => deleteGeofence(fence.id)} className="text-[9px] bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900 text-rose-400 py-0.5 px-2.5 rounded font-bold uppercase">Delete</button>
                 )}
               </div>

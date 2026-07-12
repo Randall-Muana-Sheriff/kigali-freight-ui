@@ -95,12 +95,12 @@ export default function FleetMap({
         {Object.entries(routeHistories).map(([driverName, history]) => {
           const slicedTrail = history.slice(-trailLimit);
           if (slicedTrail.length < 2) return null;
-          const hasViolation = !activeBreachedDrivers[driverName];
+          const hasViolation = !!activeBreachedDrivers[driverName];
           return <Polyline key={driverName} positions={slicedTrail} pathOptions={{ color: hasViolation ? '#ef4444' : '#10b981', weight: 2.5 }} />;
         })}
 
         {Object.values(trackedAssets).map((asset) => {
-          const hasViolation = !activeBreachedDrivers[asset.driverName];
+          const hasViolation = !!activeBreachedDrivers[asset.driverName];
           return (
             <Marker key={asset.driverName} position={[asset.lat, asset.lng]} icon={hasViolation ? violatorIcon : truckIcon}>
               <Popup>

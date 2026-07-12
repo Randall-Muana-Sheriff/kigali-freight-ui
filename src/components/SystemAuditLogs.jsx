@@ -23,7 +23,7 @@ export default function SystemAuditLogs() {
     }, [jwtToken]);
 
     useEffect(() => {
-        if (userRole === 'admin' || userRole === 'manager') {
+        if (userRole === 'admin') {
             // Call fetch asynchronously to avoid sync setState inside effect
             setTimeout(() => {
                 fetchLogs();
@@ -33,7 +33,7 @@ export default function SystemAuditLogs() {
 
     // Real-time log updates via Socket.io
     useEffect(() => {
-        if (!socket || (userRole !== 'admin' && userRole !== 'manager')) return;
+        if (!socket || userRole !== 'admin') return;
 
         const handleNewLog = (newLog) => {
             setLogs((prev) => [newLog, ...prev.slice(0, 49)]); // Keep last 50 logs
@@ -45,7 +45,7 @@ export default function SystemAuditLogs() {
         };
     }, [socket, userRole]);
 
-    if (userRole !== 'admin' && userRole !== 'manager') {
+    if (userRole !== 'admin') {
         return null;
     }
 

@@ -45,7 +45,7 @@ export default function AdminControlPanel() {
 
     return (
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg text-slate-100 space-y-3">
-            <h3 className="text-sm font-bold tracking-tight text-white">Admin & Manager Control</h3>
+            <h3 className="text-sm font-bold tracking-tight text-white">Admin & Dispatcher Control</h3>
             <div className="text-[11px] text-indigo-400 font-mono uppercase tracking-wider">Access Level: {userRole || 'Guest'}</div>
 
             {error && (

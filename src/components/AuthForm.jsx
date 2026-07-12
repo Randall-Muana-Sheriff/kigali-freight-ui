@@ -50,7 +50,6 @@ export default function AuthForm() {
                 className="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-100 outline-none focus:border-indigo-500 font-mono"
               >
                 <option value="dispatcher">Dispatcher</option>
-                <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
